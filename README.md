@@ -160,6 +160,429 @@ Az API elérhető a `http://127.0.0.1:8000/api` címen.
 - `isAdmin`: `false`
 
 
+## 📂 Migrációk
+
+### 1. Add isAdmin to Users Table
+**Fájl:** `database/migrations/2026_01_04_112446_add_is_admin_to_users_table.php`
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->boolean('isAdmin')->default(false)->after('email');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('isAdmin');
+        });
+    }
+};
+```
+
+### 2. Create Orders Table
+**Fájl:** `database/migrations/2026_01_04_112455_create_orders_table.php`
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('orders', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->decimal('total_amount', 10, 2);
+            $table->string('status')->default('pending');
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('orders');
+    }
+};
+```
+
+### 3. Create Payments Table
+**Fájl:** `database/migrations/2026_01_04_112503_create_payments_table.php`
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('payments', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('order_id')->constrained()->onDelete('cascade');
+            $table->string('payment_method');
+            $table->decimal('amount', 10, 2);
+            $table->timestamp('paid_at')->nullable();
+            $table->timestamp('created_at')->useCurrent();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('payments');
+    }
+};
+```
+
+---
+
+## 🎯 Modellek
+
+### User Model
+**Fájl:** `app/Models/User.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Tymon\JWTAuth\Contracts\JWTSubject;
+
+class User extends Authenticatable implements JWTSubject
+{
+    use HasFactory, Notifiable;
+
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'isAdmin',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'isAdmin' => 'boolean',
+        ];
+    }
+
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims()
+    {
+        return [];
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+}
+```
+
+### Order Model
+**Fájl:** `app/Models/Order.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class Order extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id',
+        'total_amount',
+        'status',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'total_amount' => 'decimal:2',
+        ];
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+}
+```
+
+### Payment Model
+**Fájl:** `app/Models/Payment.php`
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class Payment extends Model
+{
+    use HasFactory;
+
+    public $timestamps = false;
+
+    protected $fillable = [
+        'order_id',
+        'payment_method',
+        'amount',
+        'paid_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'amount' => 'decimal:2',
+            'paid_at' => 'datetime',
+            'created_at' => 'datetime',
+        ];
+    }
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
+}
+```
+
+---
+
+## 🌱 Seeders
+
+### DatabaseSeeder
+**Fájl:** `database/seeders/DatabaseSeeder.php`
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
+
+    public function run(): void
+    {
+        $this->call([
+            UserSeeder::class,
+            OrderSeeder::class,
+            PaymentSeeder::class,
+        ]);
+    }
+}
+```
+
+### UserSeeder
+**Fájl:** `database/seeders/UserSeeder.php`
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+
+class UserSeeder extends Seeder
+{
+    public function run(): void
+    {
+        // Magyar nevek listája
+        $magyarNevek = [
+            'Kovács János',
+            'Nagy Péter',
+            'Szabó Anna',
+            'Tóth Eszter',
+            'Horváth Gábor',
+            'Kiss Katalin',
+            'Varga László',
+            'Molnár Éva',
+            'Németh Márton'
+        ];
+
+        // Admin felhasználó (Kunta)
+        User::create([
+            'name' => 'Kunta',
+            'email' => 'kunta@example.com',
+            'password' => Hash::make('Super_Secret_Pw2025!'),
+            'isAdmin' => true,
+        ]);
+
+        // 9 normál felhasználó magyar nevekkel
+        foreach ($magyarNevek as $nev) {
+            $emailNev = strtolower(str_replace(' ', '.', $nev));
+            $emailNev = $this->removeAccents($emailNev);
+            
+            User::create([
+                'name' => $nev,
+                'email' => $emailNev . '@example.com',
+                'password' => Hash::make('password123'),
+                'isAdmin' => false,
+            ]);
+        }
+    }
+
+    private function removeAccents($string)
+    {
+        $accents = [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ö' => 'o', 
+            'ő' => 'o', 'ú' => 'u', 'ü' => 'u', 'ű' => 'u',
+        ];
+        return strtr($string, $accents);
+    }
+}
+```
+
+### OrderSeeder
+**Fájl:** `database/seeders/OrderSeeder.php`
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\Order;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+
+class OrderSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $users = User::all();
+        $statuses = ['pending', 'processing', 'completed', 'cancelled'];
+
+        // Minden felhasználóhoz 2-5 random rendelés
+        foreach ($users as $user) {
+            $orderCount = rand(2, 5);
+            
+            for ($i = 0; $i < $orderCount; $i++) {
+                Order::create([
+                    'user_id' => $user->id,
+                    'total_amount' => rand(5000, 150000) / 100,
+                    'status' => $statuses[array_rand($statuses)],
+                    'created_at' => now()->subDays(rand(0, 60)),
+                    'updated_at' => now()->subDays(rand(0, 30)),
+                ]);
+            }
+        }
+    }
+}
+```
+
+### PaymentSeeder
+**Fájl:** `database/seeders/PaymentSeeder.php`
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\Order;
+use App\Models\Payment;
+use Illuminate\Database\Seeder;
+
+class PaymentSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $paymentMethods = [
+            'bankkártya',
+            'készpénz',
+            'átutalás',
+            'PayPal',
+            'Simplepay',
+            'Barion',
+            'utánvét'
+        ];
+
+        $orders = Order::all();
+
+        foreach ($orders as $order) {
+            // Minden rendeléshez 1-3 fizetés
+            $paymentCount = rand(1, 3);
+            $remainingAmount = $order->total_amount;
+            
+            for ($i = 0; $i < $paymentCount; $i++) {
+                if ($i == $paymentCount - 1) {
+                    $amount = $remainingAmount;
+                } else {
+                    $maxAmount = $remainingAmount * 0.7;
+                    $amount = rand(100, (int)($maxAmount * 100)) / 100;
+                    $remainingAmount -= $amount;
+                }
+
+                $paidAt = null;
+                if ($order->status == 'completed' || rand(0, 100) > 30) {
+                    $paidAt = $order->created_at->addDays(rand(0, 5));
+                }
+
+                Payment::create([
+                    'order_id' => $order->id,
+                    'payment_method' => $paymentMethods[array_rand($paymentMethods)],
+                    'amount' => round($amount, 2),
+                    'paid_at' => $paidAt,
+                    'created_at' => $order->created_at->addMinutes(rand(5, 120)),
+                ]);
+            }
+        }
+    }
+}
+```
+
+---
+
 ## 📚 API Dokumentáció
 
 ### Base URL
