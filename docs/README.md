@@ -2,7 +2,7 @@
 
 Laravel alapú fizetési platform REST API Bearer token authentikációval, amely lehetővé teszi fizetési tranzakciók kezelését, megrendelések nyilvántartását és felhasználói authentikációt.
 
-##  Főbb funkciók
+## Főbb funkciók
 
 - **Authentikáció**: Regisztráció, bejelentkezés, token kezelés (Laravel Sanctum)
 - **Payment CRUD műveletek**: Create, Read, Update, Delete
@@ -10,7 +10,7 @@ Laravel alapú fizetési platform REST API Bearer token authentikációval, amel
 - **RESTful API**: Jól strukturált végpontok JSON válaszokkal
 - **Tesztek**: Teljes körű Feature testek PHPUnit-tal
 
-##  Adatbázis struktúra
+## Adatbázis struktúra
 
 Az alkalmazás három fő táblából áll:
 
@@ -53,7 +53,7 @@ Az alkalmazás három fő táblából áll:
 - Egy felhasználóhoz több megrendelés tartozhat (User → Orders: 1:N)
 - Egy megrendeléshez több fizetés tartozhat (Order → Payments: 1:N)
 
-##  Telepítés
+## Telepítés
 
 ### 1. Projekt létrehozása
 ```bash
@@ -139,7 +139,7 @@ php artisan serve
 
 Az API elérhető a `http://127.0.0.1:8000/api` címen.
 
-##  Teszt felhasználók
+## Teszt felhasználók
 
 **Kunta felhasználó (Admin):**
 - Email: `kunta@example.com`
@@ -152,7 +152,7 @@ Az API elérhető a `http://127.0.0.1:8000/api` címen.
 - `isAdmin`: `false`
 
 
-##  Migrációk
+## Migrációk
 
 ### 1. Add isAdmin to Users Table
 **Fájl:** `database/migrations/2026_01_04_112446_add_is_admin_to_users_table.php`
@@ -245,7 +245,7 @@ return new class extends Migration
 
 ---
 
-##  Modellek
+## Modellek
 
 ### User Model
 **Fájl:** `app/Models/User.php`
@@ -384,7 +384,7 @@ class Payment extends Model
 
 ---
 
-##  Seeders
+## Seeders
 
 ### DatabaseSeeder
 **Fájl:** `database/seeders/DatabaseSeeder.php`
@@ -575,7 +575,659 @@ class PaymentSeeder extends Seeder
 
 ---
 
-##  API Dokumentáció
+## Routes (API végpontok)
+
+**Fájl:** `routes/api.php`
+
+```php
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentController;
+
+// Nyilvános végpontok - JWT token nélkül elérhetők
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+
+// Teszt végpont - API működésének ellenőrzése
+Route::get('/test', function () {
+    return response()->json([
+        'status' => 'success',
+        'message' => 'API is working correctly',
+        'timestamp' => now()->toDateTimeString()
+    ]);
+});
+
+// Védett végpontok - JWT token szükséges
+Route::middleware('auth:api')->group(function () {
+    // Authentikációs végpontok
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/refresh', [AuthController::class, 'refresh']);
+    Route::get('/me', [AuthController::class, 'me']);
+
+    // Order CRUD műveletek
+    Route::apiResource('orders', OrderController::class);
+
+    // Payment CRUD műveletek
+    Route::apiResource('payments', PaymentController::class);
+});
+```
+
+### Végpontok összefoglalója
+
+| HTTP | Végpont | Védett | Leírás |
+|------|---------|--------|--------|
+| POST | `/api/register` | ❌ | Új felhasználó regisztrálása |
+| POST | `/api/login` | ❌ | Bejelentkezés JWT token megszerzése |
+| GET | `/api/test` | ❌ | API működés tesztelése |
+| POST | `/api/logout` | ✅ | Kijelentkezés (token érvénytelenítése) |
+| POST | `/api/refresh` | ✅ | JWT token frissítése |
+| GET | `/api/me` | ✅ | Aktuális felhasználó adatai |
+| GET | `/api/orders` | ✅ | Összes order listázása |
+| POST | `/api/orders` | ✅ | Új order létrehozása |
+| GET | `/api/orders/{id}` | ✅ | Egy order megtekintése |
+| PUT/PATCH | `/api/orders/{id}` | ✅ | Order módosítása |
+| DELETE | `/api/orders/{id}` | ✅ | Order törlése |
+| GET | `/api/payments` | ✅ | Összes payment listázása |
+| POST | `/api/payments` | ✅ | Új payment létrehozása |
+| GET | `/api/payments/{id}` | ✅ | Egy payment megtekintése |
+| PUT/PATCH | `/api/payments/{id}` | ✅ | Payment módosítása |
+| DELETE | `/api/payments/{id}` | ✅ | Payment törlése |
+
+---
+
+## Controllers (Vezérlők)
+
+### AuthController
+**Fájl:** `app/Http/Controllers/AuthController.php`
+
+Felhasználói authentikáció kezelése JWT tokenekkel.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+
+class AuthController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware('auth:api', ['except' => ['login', 'register']]);
+    }
+
+    /**
+     * Új felhasználó regisztrálása
+     * 
+     * Validáció:
+     * - name: kötelező, string, max 255 karakter
+     * - email: kötelező, egyedi, valid email formátum
+     * - password: kötelező, min 6 karakter, megerősítés szükséges
+     * - isAdmin: opcionális, boolean (default: false)
+     */
+    public function register(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:6|confirmed',
+            'isAdmin' => 'boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'isAdmin' => $request->isAdmin ?? false,
+        ]);
+
+        $token = Auth::guard('api')->login($user);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User registered successfully',
+            'user' => $user,
+            'authorization' => [
+                'token' => $token,
+                'type' => 'bearer',
+            ]
+        ], 201);
+    }
+
+    /**
+     * Bejelentkezés JWT token megszerzése
+     * 
+     * Email és jelszó alapján authentikáció.
+     * Sikeres bejelentkezés esetén JWT tokent ad vissza.
+     */
+    public function login(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email',
+            'password' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $credentials = $request->only('email', 'password');
+
+        if (!$token = Auth::guard('api')->attempt($credentials)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        $user = Auth::guard('api')->user();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Login successful',
+            'user' => $user,
+            'authorization' => [
+                'token' => $token,
+                'type' => 'bearer',
+            ]
+        ]);
+    }
+
+    /**
+     * Kijelentkezés
+     * 
+     * Az aktuális JWT token érvénytelenítése.
+     */
+    public function logout()
+    {
+        Auth::guard('api')->logout();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Successfully logged out'
+        ]);
+    }
+
+    /**
+     * JWT token frissítése
+     * 
+     * Új tokent generál a régi helyett, meghosszabbítva a session-t.
+     */
+    public function refresh()
+    {
+        $token = Auth::guard('api')->refresh();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Token refreshed successfully',
+            'authorization' => [
+                'token' => $token,
+                'type' => 'bearer',
+            ]
+        ]);
+    }
+
+    /**
+     * Aktuális felhasználó adatainak lekérése
+     * 
+     * Visszaadja a JWT tokenből azonosított felhasználót.
+     */
+    public function me()
+    {
+        return response()->json([
+            'status' => 'success',
+            'user' => Auth::guard('api')->user()
+        ]);
+    }
+}
+```
+
+### OrderController
+**Fájl:** `app/Http/Controllers/OrderController.php`
+
+Order (megrendelés) CRUD műveletek jogosultság-kezeléssel.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Order;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+
+class OrderController extends Controller
+{
+    /**
+     * Order-ek listázása
+     * 
+     * - Admin: látja az összes order-t
+     * - Normál user: csak a sajátjait
+     */
+    public function index()
+    {
+        $user = Auth::guard('api')->user();
+        
+        if ($user->isAdmin) {
+            $orders = Order::with('user', 'payments')->get();
+        } else {
+            $orders = Order::where('user_id', $user->id)->with('payments')->get();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $orders
+        ]);
+    }
+
+    /**
+     * Új order létrehozása
+     * 
+     * Automatikusan az aktuális felhasználóhoz rendeli.
+     * Status alapértelmezetten 'pending'.
+     */
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'total_amount' => 'required|numeric|min:0',
+            'status' => 'string|in:pending,processing,completed,cancelled',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = Auth::guard('api')->user();
+
+        $order = Order::create([
+            'user_id' => $user->id,
+            'total_amount' => $request->total_amount,
+            'status' => $request->status ?? 'pending',
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Order created successfully',
+            'data' => $order->load('payments')
+        ], 201);
+    }
+
+    /**
+     * Egy order megtekintése
+     * 
+     * Jogosultság ellenőrzés:
+     * - Admin: bármely order-t megtekintheti
+     * - User: csak a saját order-jét
+     */
+    public function show(string $id)
+    {
+        $order = Order::with('user', 'payments')->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Order not found'
+            ], 404);
+        }
+
+        $user = Auth::guard('api')->user();
+
+        if (!$user->isAdmin && $order->user_id !== $user->id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No permission to view this order'
+            ], 403);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $order
+        ]);
+    }
+
+    /**
+     * Order módosítása
+     * 
+     * Jogosultság: Admin vagy az order tulajdonosa
+     */
+    public function update(Request $request, string $id)
+    {
+        $order = Order::find($id);
+
+        if (!$order) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Order not found'
+            ], 404);
+        }
+
+        $user = Auth::guard('api')->user();
+
+        if (!$user->isAdmin && $order->user_id !== $user->id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No permission to update this order'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'total_amount' => 'numeric|min:0',
+            'status' => 'string|in:pending,processing,completed,cancelled',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $order->update($request->only(['total_amount', 'status']));
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Order updated successfully',
+            'data' => $order->load('payments')
+        ]);
+    }
+
+    /**
+     * Order törlése
+     * 
+     * Jogosultság: Admin vagy az order tulajdonosa
+     * Cascade delete: a hozzá tartozó payments is törlődnek
+     */
+    public function destroy(string $id)
+    {
+        $order = Order::find($id);
+
+        if (!$order) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Order not found'
+            ], 404);
+        }
+
+        $user = Auth::guard('api')->user();
+
+        if (!$user->isAdmin && $order->user_id !== $user->id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No permission to delete this order'
+            ], 403);
+        }
+
+        $order->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Order deleted successfully'
+        ]);
+    }
+}
+```
+
+### PaymentController
+**Fájl:** `app/Http/Controllers/PaymentController.php`
+
+Payment (fizetés) CRUD műveletek jogosultság-kezeléssel.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Payment;
+use App\Models\Order;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+
+class PaymentController extends Controller
+{
+    /**
+     * Payment-ek listázása
+     * 
+     * - Admin: összes payment
+     * - User: csak a saját order-jeihez tartozó payments
+     */
+    public function index()
+    {
+        $user = Auth::guard('api')->user();
+        
+        if ($user->isAdmin) {
+            $payments = Payment::with('order.user')->get();
+        } else {
+            $payments = Payment::whereHas('order', function($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })->with('order')->get();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $payments
+        ]);
+    }
+
+    /**
+     * Új payment létrehozása
+     * 
+     * Jogosultság: csak a saját order-jéhez hozhat létre payment-et
+     * (kivéve admin, aki bárkihez)
+     */
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_id' => 'required|exists:orders,id',
+            'payment_method' => 'required|string|max:255',
+            'amount' => 'required|numeric|min:0',
+            'paid_at' => 'nullable|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $order = Order::find($request->order_id);
+        $user = Auth::guard('api')->user();
+
+        if (!$user->isAdmin && $order->user_id !== $user->id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No permission to create payment for this order'
+            ], 403);
+        }
+
+        $payment = Payment::create([
+            'order_id' => $request->order_id,
+            'payment_method' => $request->payment_method,
+            'amount' => $request->amount,
+            'paid_at' => $request->paid_at ?? now(),
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Payment created successfully',
+            'data' => $payment->load('order')
+        ], 201);
+    }
+
+    /**
+     * Egy payment megtekintése
+     * 
+     * Jogosultság: Admin vagy a payment order-jének tulajdonosa
+     */
+    public function show(string $id)
+    {
+        $payment = Payment::with('order.user')->find($id);
+
+        if (!$payment) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Payment not found'
+            ], 404);
+        }
+
+        $user = Auth::guard('api')->user();
+
+        if (!$user->isAdmin && $payment->order->user_id !== $user->id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No permission to view this payment'
+            ], 403);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $payment
+        ]);
+    }
+
+    /**
+     * Payment módosítása
+     * 
+     * Jogosultság: Admin vagy az order tulajdonosa
+     */
+    public function update(Request $request, string $id)
+    {
+        $payment = Payment::with('order')->find($id);
+
+        if (!$payment) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Payment not found'
+            ], 404);
+        }
+
+        $user = Auth::guard('api')->user();
+
+        if (!$user->isAdmin && $payment->order->user_id !== $user->id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No permission to update this payment'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'payment_method' => 'string|max:255',
+            'amount' => 'numeric|min:0',
+            'paid_at' => 'nullable|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $payment->update($request->only(['payment_method', 'amount', 'paid_at']));
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Payment updated successfully',
+            'data' => $payment->load('order')
+        ]);
+    }
+
+    /**
+     * Payment törlése
+     * 
+     * Jogosultság: Admin vagy az order tulajdonosa
+     */
+    public function destroy(string $id)
+    {
+        $payment = Payment::with('order')->find($id);
+
+        if (!$payment) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Payment not found'
+            ], 404);
+        }
+
+        $user = Auth::guard('api')->user();
+
+        if (!$user->isAdmin && $payment->order->user_id !== $user->id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No permission to delete this payment'
+            ], 403);
+        }
+
+        $payment->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Payment deleted successfully'
+        ]);
+    }
+}
+```
+
+---
+
+## Jogosultságkezelés
+
+### Admin vs Normál felhasználó
+
+**Admin jogosultságok (`isAdmin = true`):**
+-  Látja az **összes** order-t és payment-et
+-  Módosíthatja és törölheti **bármely** felhasználó adatait
+-  Teljes hozzáférés az API minden funkciójához
+
+**Normál felhasználó jogosultságok (`isAdmin = false`):**
+-  Csak a **saját** order-jeit látja
+-  Csak a **saját** order-jeihez tartozó payment-eket látja
+-  Csak a **saját** adatait módosíthatja és törölheti
+-  Más felhasználók adataihoz nincs hozzáférése
+
+### Jogosultság ellenőrzés működése
+
+```php
+// Controller-ekben minden műveletnél ellenőrzés
+if (!$user->isAdmin && $order->user_id !== $user->id) {
+    return response()->json([
+        'status' => 'error',
+        'message' => 'No permission to view this order'
+    ], 403);
+}
+```
+
+---
+
+## API Dokumentáció
 
 ### Base URL
 ```
@@ -803,7 +1455,7 @@ Payment törlése (Soft Delete)
 }
 ```
 
-##  Soft Delete
+## Soft Delete
 
 A rendszer **Soft Delete** megközelítést használ:
 - Törölt rekordok fizikailag **megmaradnak** az adatbázisban
@@ -811,7 +1463,7 @@ A rendszer **Soft Delete** megközelítést használ:
 - Lekérdezések alapértelmezetten **nem tartalmazzák** a törölt rekordokat
 - Törölt rekordok később **visszaállíthatók**
 
-##  Tesztelés
+## Tesztelés
 
 ### Tesztek futtatása
 ```bash
@@ -838,7 +1490,7 @@ PASS  Tests\Feature\PaymentTest
 Tests:  25 passed
 ```
 
-##  HTTP Státuszkódok
+## HTTP Státuszkódok
 
 | Kód | Jelentés | Használat |
 |-----|----------|-----------|
@@ -849,7 +1501,7 @@ Tests:  25 passed
 | 404 | Not Found | Erőforrás nem található |
 | 422 | Unprocessable Entity | Validációs hiba |
 
-##  Projekt struktúra
+## Projekt struktúra
 
 ```
 app/
@@ -881,7 +1533,7 @@ tests/
 │   └── PaymentTest.php             # Payment tesztek
 ```
 
-##  Hasznos parancsok
+## Hasznos parancsok
 
 ```bash
 # Migrációk visszavonása és újrafuttatása seed-del
@@ -904,3 +1556,4 @@ php artisan route:clear
 # Tesztek futtatása verbose móddal
 php artisan test --verbose
 ```
+
