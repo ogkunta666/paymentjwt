@@ -84,7 +84,6 @@ php artisan make:migration create_payments_table
 **Megjegyzés:** A migrációs fájlokat a `database/migrations/` mappában kell szerkeszteni a megfelelő sémával (lásd az adatbázis struktúra részt).
 
 ### 5. Környezeti változók beállítása
-Másold le a `.env.example` fájlt `.env` néven és állítsd be az adatbázis kapcsolatot:
 ```env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
