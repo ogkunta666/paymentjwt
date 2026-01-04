@@ -2,7 +2,7 @@
 
 Laravel alapú fizetési platform REST API Bearer token authentikációval, amely lehetővé teszi fizetési tranzakciók kezelését, megrendelések nyilvántartását és felhasználói authentikációt.
 
-## 🚀 Főbb funkciók
+##  Főbb funkciók
 
 - **Authentikáció**: Regisztráció, bejelentkezés, token kezelés (Laravel Sanctum)
 - **Payment CRUD műveletek**: Create, Read, Update, Delete
@@ -10,7 +10,7 @@ Laravel alapú fizetési platform REST API Bearer token authentikációval, amel
 - **RESTful API**: Jól strukturált végpontok JSON válaszokkal
 - **Tesztek**: Teljes körű Feature testek PHPUnit-tal
 
-## 📋 Technológiai stack
+##  Technológiai stack
 
 - **Framework**: Laravel 11.x
 - **Authentikáció**: JWT (tymon/jwt-auth)
@@ -18,7 +18,7 @@ Laravel alapú fizetési platform REST API Bearer token authentikációval, amel
 - **PHP verzió**: 8.2+
 - **Testing**: PHPUnit
 
-## 📊 Adatbázis struktúra
+##  Adatbázis struktúra
 
 Az alkalmazás három fő táblából áll:
 
