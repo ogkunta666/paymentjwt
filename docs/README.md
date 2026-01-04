@@ -81,7 +81,44 @@ php artisan jwt:secret
 php artisan migrate
 ```
 
-### 6. Szerver indítása
+### 6. Teszt adatok feltöltése (Seeders)
+```bash
+php artisan db:seed
+```
+
+Ez a parancs létrehozza:
+- **1 Admin felhasználót**:
+  - Email: `admin@example.com`
+  - Jelszó: `password123`
+  - Admin jog: ✅
+
+- **9 Normál felhasználót** magyar nevekkel:
+  - Kovács János (`kovacs.janos@example.com`)
+  - Nagy Péter (`nagy.peter@example.com`)
+  - Szabó Anna (`szabo.anna@example.com`)
+  - Tóth Eszter (`toth.eszter@example.com`)
+  - Horváth Gábor (`horvath.gabor@example.com`)
+  - Kiss Katalin (`kiss.katalin@example.com`)
+  - Varga László (`varga.laszlo@example.com`)
+  - Molnár Éva (`molnar.eva@example.com`)
+  - Németh Márton (`nemeth.marton@example.com`)
+  - Jelszó mindegyikhez: `password123`
+
+- **25-35 Rendelést** (2-5 rendelés/felhasználó):
+  - Véletlenszerű összegek (50 Ft - 1500 Ft)
+  - Státuszok: pending, processing, completed, cancelled
+  - Dátumok: utolsó 60 nap
+
+- **30-100 Fizetést** (1-3 fizetés/rendelés):
+  - Magyar fizetési módok: bankkártya, készpénz, átutalás, PayPal, Simplepay, Barion, utánvét
+  - Completed rendelésekhez biztosan van fizetés dátuma
+
+**Ha újra szeretnéd tölteni az adatokat:**
+```bash
+php artisan migrate:fresh --seed
+```
+
+### 7. Szerver indítása
 ```bash
 php artisan serve
 ```
@@ -741,113 +778,162 @@ A Postman collection automatikusan kezeli a következőket:
 
 ### 3. Tesztelési Forgatókönyv
 
-#### Alapvető Tesztek
+#### Alapvető Tesztek - Seeder Adatokkal
+
+**Előfeltétel:** Az adatbázis fel van töltve seeder adatokkal (`php artisan db:seed`)
 
 1. **API Működésének Ellenőrzése**
    - Futtasd a "Test API Endpoint" kérést
    - Válasz: 200 OK
 
-2. **Regisztráció**
-   - Futtasd a "Register User" kérést egy normál felhasználóval
-   - Futtasd a "Register Admin" kérést egy admin felhasználóval
-   - Válasz: 201 Created, token automatikusan mentődik
+2. **Bejelentkezés Meglévő Felhasználóval**
+   
+   **Admin felhasználó:**
+   ```json
+   {
+       "email": "admin@example.com",
+       "password": "password123"
+   }
+   ```
+   
+   **Normál felhasználók (válassz egyet):**
+   - `kovacs.janos@example.com` / password123
+   - `nagy.peter@example.com` / password123
+   - `szabo.anna@example.com` / password123
+   - `toth.eszter@example.com` / password123
+   - `horvath.gabor@example.com` / password123
+   - `kiss.katalin@example.com` / password123
+   - `varga.laszlo@example.com` / password123
+   - `molnar.eva@example.com` / password123
+   - `nemeth.marton@example.com` / password123
 
-3. **Bejelentkezés**
-   - Futtasd a "Login" kérést
-   - Válasz: 200 OK, token automatikusan mentődik
-
-4. **Felhasználói Adatok Lekérése**
+3. **Felhasználói Adatok Lekérése**
    - Futtasd a "Get Current User" kérést
    - Válasz: 200 OK, felhasználói adatok
 
-#### Rendelések Tesztelése
+#### Rendelések Tesztelése (Seeder Adatokkal)
 
 5. **Rendelés Létrehozása**
    - Futtasd a "Create Order" kérést
    - Válasz: 201 Created
 
-6. **Összes Rendelés Lekérése**
-   - Futtasd a "Get All Orders" kérést
-   - Normál felhasználó: csak saját rendelések
-   - Admin: összes rendelés
+4. **Összes Rendelés Lekérése**
+   - Jelentkezz be normál felhasználóval: csak az ő rendelései (2-5 db)
+   - Jelentkezz be adminként: összes rendelés látható (~30 db)
 
-7. **Egy Rendelés Lekérése**
-   - Futtasd a "Get Order by ID" kérést (ID: 1)
-   - Válasz: 200 OK vagy 403 ha nem sajátod és nem vagy admin
+5. **Egy Rendelés Lekérése**
+   - Futtasd a "Get Order by ID" kérést
+   - Normál user: 200 OK ha saját, 403 ha másé
+   - Admin: 200 OK bármelyik rendelésnél
 
-8. **Rendelés Módosítása**
-   - Futtasd az "Update Order" kérést
-   - Válasz: 200 OK vagy 403 ha nincs jogod
+6. **Rendelés Módosítása**
+   - Módosítsd egy rendelés státuszát vagy összegét
+   - Normál user: csak saját rendelést módosíthat
+   - Admin: bármit módosíthat
 
-9. **Rendelés Törlése**
-   - Futtasd a "Delete Order" kérést
-   - Válasz: 200 OK vagy 403 ha nincs jogod
+7. **Új Rendelés Létrehozása**
+   - Futtasd a "Create Order" kérést
+   - Az aktuális user-hez lesz társítva
 
-#### Fizetések Tesztelése
+8. **Rendelés Törlése**
+   - Törölj egy rendelést
+   - A hozzá tartozó fizetések is törlődnek (cascade)
 
-10. **Fizetés Létrehozása**
-    - Először hozz létre egy rendelést
-    - Futtasd a "Create Payment" kérést a rendelés ID-jával
-    - Válasz: 201 Created
+#### Fizetések Tesztelése (Seeder Adatokkal)
 
-11. **Összes Fizetés Lekérése**
-    - Futtasd a "Get All Payments" kérést
-    - Normál felhasználó: csak saját rendelésekhez tartozó fizetések
-    - Admin: összes fizetés
+9. **Összes Fizetés Lekérése**
+    - Normál user: csak saját rendeléseihez tartozó fizetések (~5-15 db)
+    - Admin: összes fizetés (~60-100 db)
 
-12. **Egy Fizetés Lekérése**
+10. **Egy Fizetés Lekérése**
     - Futtasd a "Get Payment by ID" kérést
-    - Válasz: 200 OK vagy 403 ha nem sajátod és nem vagy admin
+    - Nézz meg egy konkrét fizetést
+    - Normál user: 200 OK ha saját rendeléshez tartozik, 403 ha másé
+    - Admin: 200 OK bármelyik fizetésnél
 
-13. **Fizetés Módosítása**
-    - Futtasd az "Update Payment" kérést
-    - Válasz: 200 OK vagy 403 ha nincs jogod
+11. **Fizetés Módosítása**
+    - Módosítsd a fizetési módszert vagy összeget
+    - Láthatod a magyar fizetési módokat (bankkártya, PayPal, stb.)
 
-14. **Fizetés Törlése**
-    - Futtasd a "Delete Payment" kérést
-    - Válasz: 200 OK vagy 403 ha nincs jogod
+12. **Új Fizetés Létrehozása**
+    - Hozz létre új fizetést egy meglévő rendeléshez
+    - Használj magyar fizetési módot
+
+13. **Fizetés Törlése**
+    - Törölj egy fizetést
+    - Csak saját rendeléshez tartozót törölhetsz (vagy admin mindet)
 
 #### Token Műveletek
 
-15. **Token Frissítés**
+14. **Token Frissítés**
     - Futtasd a "Refresh Token" kérést
     - Válasz: 200 OK, új token automatikusan mentődik
 
-16. **Kijelentkezés**
+15. **Kijelentkezés**
     - Futtasd a "Logout" kérést
     - Válasz: 200 OK, token invalidálva
 
 #### Jogosultság Tesztek
 
-17. **Normál Felhasználó Korlátozások**
-    - Jelentkezz be normál felhasználóként
-    - Próbálj meg hozzáférni más felhasználó rendeléséhez
-    - Válasz: 403 Forbidden
+16. **Normál Felhasználó Korlátozások**
+    - Jelentkezz be `kovacs.janos@example.com` felhasználóval
+    - Próbálj meg hozzáférni ID 1 rendeléshez (ami valószínűleg az adminé)
+    - Válasz: 403 Forbidden (ha nem a tiéd)
 
-18. **Admin Jogosultságok**
-    - Jelentkezz be adminként
+17. **Admin Jogosultságok**
+    - Jelentkezz be `admin@example.com` felhasználóval
     - Próbálj meg hozzáférni bármely rendeléshez/fizetéshez
-    - Válasz: 200 OK
+    - Válasz: 200 OK (admin mindent láthat és módosíthat)
 
 #### Hibakezelés Tesztek
 
-19. **Nem Létező Erőforrás**
+18. **Nem Létező Erőforrás**
     - Kérj le egy rendelést egy nem létező ID-val (pl. 9999)
     - Válasz: 404 Not Found
 
-20. **Validációs Hibák**
+19. **Validációs Hibák**
     - Próbálj létrehozni rendelést negatív összeggel
     - Próbálj létrehozni fizetést nem létező order_id-val
     - Válasz: 422 Unprocessable Entity
 
-21. **Authentikáció Nélküli Kérés**
+20. **Authentikáció Nélküli Kérés**
     - Távolítsd el az Authorization headert
     - Próbálj meg lekérni rendeléseket
     - Válasz: 401 Unauthorized
 
+### 4. Gyors Teszt Adatok Áttekintése
+
+**Beépített felhasználók és jelszavak:**
+- Admin: `admin@example.com` / `password123`
+- 9 magyar felhasználó: `{vezetéknév}.{keresztnév}@example.com` / `password123`
+
+**Adatok statisztikái:**
+- ~30 rendelés összesen
+- ~70-90 fizetés összesen
+- Rendelés státuszok: pending, processing, completed, cancelled
+- Fizetési módok: bankkártya, készpénz, átutalás, PayPal, Simplepay, Barion, utánvét
+- Összegek: 50 Ft - 1500 Ft között
+
 ---
 
 ## 🛠️ Fejlesztői Megjegyzések
+
+### Seeder Osztályok
+
+#### UserSeeder
+- Létrehoz 1 admin és 9 normál felhasználót
+- Magyar nevek használata
+- Email címek ékezet nélkül generálva
+
+#### OrderSeeder
+- Minden felhasználóhoz 2-5 véletlenszerű rendelés
+- Különböző státuszok és összegek
+- Dátumok az elmúlt 60 napból
+
+#### PaymentSeeder
+- Minden rendeléshez 1-3 fizetés
+- Magyar fizetési módok
+- Completed rendeléseknél garantált paid_at dátum
 
 ### Model Kapcsolatok
 
@@ -921,6 +1007,10 @@ public function order()
 - ✅ API hibakódok standardizálva
 - ✅ Postman collection létrehozva
 - ✅ Teljes dokumentáció elkészítve
+- ✅ Seederek létrehozva magyar nyelvű teszt adatokkal
+- ✅ 1 admin + 9 normál felhasználó generálva
+- ✅ ~30 rendelés és ~70-90 fizetés generálva
+- ✅ Magyar fizetési módok (bankkártya, PayPal, Simplepay, stb.)
 
 ---
 
@@ -935,8 +1025,15 @@ php artisan jwt:secret
 
 ### "SQLSTATE[42S02]: Base table or view not found"
 ```bash
-php artisan migrate:fresh
+php artisan migrate:fresh --seed
 ```
+Ez újra létrehozza az összes táblát és feltölti a teszt adatokat.
+
+### "Duplicate entry" hiba seeder futtatáskor
+```bash
+php artisan migrate:fresh --seed
+```
+Ezzel tiszta adatbázissal kezdhetsz, törlöd a régi adatokat és újra feltöltöd.
 
 ### "Unauthenticated" hibaüzenet
 - Ellenőrizd, hogy a JWT token helyesen van-e beállítva az Authorization headerben
@@ -946,6 +1043,24 @@ php artisan migrate:fresh
 ### "No permission" hibák
 - Ellenőrizd, hogy a megfelelő felhasználóval vagy-e bejelentkezve
 - Admin műveletekhez admin jogosultság szükséges (isAdmin: true)
+- Admin email: `admin@example.com`
+
+### Tesztadatok újratöltése
+Ha el akarod távolítani az összes adatot és újra feltölteni:
+```bash
+php artisan migrate:fresh --seed
+```
+
+---
+
+## 📊 Adatbázis Feltöltöttség
+
+Az adatbázis a seederek futtatása után:
+- ✅ 10 felhasználó (1 admin + 9 normál)
+- ✅ ~30 rendelés (változó, 2-5/user)
+- ✅ ~70-90 fizetés (változó, 1-3/rendelés)
+- ✅ Magyar nyelvű adatok
+- ✅ Valósághű dátumok és összegek
 
 ---
 
