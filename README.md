@@ -1,294 +1,483 @@
-# 💳 Online Fizetések Nyilvántartása - Payment Platform JWT
+# Payment Platform REST API
 
-Laravel alapú REST API rendszer online fizetések és rendelések nyilvántartására JWT token authentikációval.
+Laravel alapú fizetési platform REST API Bearer token authentikációval, amely lehetővé teszi fizetési tranzakciók kezelését, megrendelések nyilvántartását és felhasználói authentikációt.
 
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+## 🚀 Főbb funkciók
 
-## 🚀 Gyors Indítás
+- **Authentikáció**: Regisztráció, bejelentkezés, token kezelés (Laravel Sanctum)
+- **Payment CRUD műveletek**: Create, Read, Update, Delete
+- **Soft Delete támogatás**: Törölt adatok visszaállíthatók
+- **RESTful API**: Jól strukturált végpontok JSON válaszokkal
+- **Tesztek**: Teljes körű Feature testek PHPUnit-tal
 
-### Telepítés
+## 📋 Technológiai stack
 
+- **Framework**: Laravel 11.x
+- **Authentikáció**: JWT (tymon/jwt-auth)
+- **Adatbázis**: MySQL
+- **PHP verzió**: 8.2+
+- **Testing**: PHPUnit
+
+## 📊 Adatbázis struktúra
+
+Az alkalmazás három fő táblából áll:
+
+### Users tábla
+| Mező | Típus | Leírás |
+|------|-------|--------|
+| id | bigint | Elsődleges kulcs |
+| name | varchar(255) | Felhasználó neve |
+| email | varchar(255) | Email cím (egyedi) |
+| isAdmin | boolean | Admin jogosultság (default: false) |
+| password | varchar(255) | Hash-elt jelszó |
+| email_verified_at | timestamp | Email megerősítés időpontja |
+| created_at | timestamp | Létrehozás dátuma |
+| updated_at | timestamp | Utolsó módosítás dátuma |
+
+### Orders tábla (Soft Delete)
+| Mező | Típus | Leírás |
+|------|-------|--------|
+| id | bigint | Elsődleges kulcs |
+| user_id | bigint | Foreign key (users.id) |
+| total_amount | decimal(10,2) | Megrendelés teljes összege |
+| status | varchar(255) | Státusz (pending, processing, completed, cancelled) |
+| created_at | timestamp | Létrehozás dátuma |
+| updated_at | timestamp | Utolsó módosítás dátuma |
+| deleted_at | timestamp | Soft delete - törlés dátuma |
+
+### Payments tábla (Soft Delete)
+| Mező | Típus | Leírás |
+|------|-------|--------|
+| id | bigint | Elsődleges kulcs |
+| order_id | bigint | Foreign key (orders.id) |
+| payment_method | varchar(255) | Fizetési mód |
+| amount | decimal(10,2) | Fizetett összeg |
+| paid_at | timestamp | Fizetés időpontja |
+| created_at | timestamp | Létrehozás dátuma |
+| updated_at | timestamp | Utolsó módosítás dátuma |
+| deleted_at | timestamp | Soft delete - törlés dátuma |
+
+### Kapcsolatok
+- Egy felhasználóhoz több megrendelés tartozhat (User → Orders: 1:N)
+- Egy megrendeléshez több fizetés tartozhat (Order → Payments: 1:N)
+
+## 🔧 Telepítés
+
+### 1. Projekt klónozása
 ```bash
-# Függőségek telepítése
+git clone <repository-url>
+cd paymentPlatformJWT
+```
+
+### 2. Függőségek telepítése
+```bash
 composer install
+```
 
-# Környezeti változók beállítása
-cp .env.example .env
-
-# Alkalmazás kulcs generálása
-php artisan key:generate
-
-# JWT titkos kulcs generálása
+### 3. JWT Secret generálása
+```bash
 php artisan jwt:secret
+```
 
-# Adatbázis létrehozása és migrációk futtatása
+Ez hozzáadja a `JWT_SECRET` kulcsot a `.env` fájlhoz.
+
+### 4. Környezeti változók beállítása
+Másold le a `.env.example` fájlt `.env` néven és állítsd be az adatbázis kapcsolatot:
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=paymentPlatform
+DB_USERNAME=root
+DB_PASSWORD=
+
+APP_TIMEZONE=Europe/Budapest
+APP_FAKER_LOCALE=hu_HU
+
+JWT_SECRET=your_secret_key_here
+JWT_TTL=60
+```
+
+### 5. Application key generálása
+```bash
+php artisan key:generate
+```
+
+### 6. Adatbázis létrehozása
+Hozz létre egy `paymentPlatform` nevű adatbázist MySQL-ben.
+
+### 7. Migrációk futtatása
+```bash
 php artisan migrate
+```
 
-# Teszt adatok feltöltése (1 admin + 9 felhasználó, ~30 rendelés, ~70-90 fizetés)
+### 8. Adatbázis feltöltése (Seeding)
+```bash
 php artisan db:seed
+```
 
-# Szerver indítása
+Ez létrehoz:
+- **1 Kunta felhasználót**: `kunta@example.com` / `Super_Secret_Pw2025!` (Admin)
+- **10 fake felhasználót**: Magyar nevekkel és adatokkal (normál felhasználók)
+- **10-30 megrendelést**: Minden felhasználóhoz 1-3 megrendelés
+- **10-60 fizetést**: Minden megrendeléshez 1-2 fizetés
+
+### 9. Szerver indítása
+```bash
 php artisan serve
 ```
 
-Az API elérhető lesz: `http://localhost:8000/api`
+Az API elérhető a `http://127.0.0.1:8000/api` címen.
 
-## 👤 Beépített Felhasználók
+## 👥 Teszt felhasználók
 
-### Admin Felhasználó
-- **Email:** `admin@example.com`
-- **Jelszó:** `password123`
-- **Jogosultságok:** Teljes hozzáférés az összes adathoz
+**Kunta felhasználó (Admin):**
+- Email: `kunta@example.com`
+- Jelszó: `Super_Secret_Pw2025!`
+- `isAdmin`: `true`
 
-### Normál Felhasználók (9 db - Magyar nevek)
-- `kovacs.janos@example.com`
-- `nagy.peter@example.com`
-- `szabo.anna@example.com`
-- `toth.eszter@example.com`
-- `horvath.gabor@example.com`
-- `kiss.katalin@example.com`
-- `varga.laszlo@example.com`
-- `molnar.eva@example.com`
-- `nemeth.marton@example.com`
+**10 fake felhasználó (normál jogosultság):**
+- Magyar nevekkel (faker által generált)
+- Jelszavak: faker által generált
+- `isAdmin`: `false`
 
-**Mindegyik jelszava:** `password123`
-
-## 📋 Funkciók
-
-### ✅ JWT Authentikáció
-- Register, Login, Logout, Token Refresh
-- Bearer token alapú védelem
-
-### ✅ Jogosultságkezelés
-- **Admin:** Teljes hozzáférés minden adathoz
-- **User:** Csak saját rendelések és fizetések kezelése
-
-### ✅ CRUD Műveletek
-- **Users:** Regisztráció, bejelentkezés
-- **Orders:** Teljes CRUD (Create, Read, Update, Delete)
-- **Payments:** Teljes CRUD
-
-### ✅ Validáció és Hibakezelés
-- 200 OK - Sikeres művelet
-- 201 Created - Sikeres létrehozás
-- 401 Unauthorized - Érvénytelen authentikáció
-- 403 Forbidden - Nincs jogosultság
-- 404 Not Found - Nem található
-- 422 Validation Failed - Validációs hiba
-
-## 📦 Adatbázis Struktúra
-
-```
-users
-├── id
-├── name
-├── email
-├── password
-├── isAdmin (boolean)
-└── timestamps
-
-orders
-├── id
-├── user_id (FK -> users)
-├── total_amount (decimal)
-├── status (pending/processing/completed/cancelled)
-└── timestamps
-
-payments
-├── id
-├── order_id (FK -> orders)
-├── payment_method (string)
-├── amount (decimal)
-├── paid_at (timestamp)
-└── created_at
-```
-
-## 🧪 Tesztelés Postman-nel
-
-1. **Importáld a Postman collection-t:**
-   - Fájl: `docs/Payment_Platform_JWT_API.postman_collection.json`
-   - Postman → Import → File → Válaszd ki a fájlt
-
-2. **A collection tartalmazza:**
-   - ✅ Minden API endpointot
-   - ✅ Automatikus token kezelést
-   - ✅ Példa adatokat
-   - ✅ Tesztek és validációk
-
-3. **Gyors teszt:**
-   - Futtasd a "Login" kérést az admin felhasználóval
-   - A token automatikusan mentésre kerül
-   - Próbáld ki a "Get All Orders" kérést
 
 ## 📚 API Dokumentáció
 
-**Teljes dokumentáció:** [`docs/README.md`](docs/README.md)
+### Base URL
+```
+http://127.0.0.1:8000/api
+```
 
-### Főbb Endpointok
+### Headers
+Minden kéréshez:
+```
+Content-Type: application/json
+Accept: application/json
+```
 
-#### Authentikáció
-- `POST /api/register` - Regisztráció
-- `POST /api/login` - Bejelentkezés
-- `POST /api/logout` - Kijelentkezés
-- `POST /api/refresh` - Token frissítés
-- `GET /api/me` - Aktuális felhasználó
+Védett végpontokhoz:
+```
+Authorization: Bearer {jwt_token}
+```
 
-#### Orders
-- `GET /api/orders` - Összes rendelés
-- `GET /api/orders/{id}` - Egy rendelés
-- `POST /api/orders` - Új rendelés
-- `PUT /api/orders/{id}` - Rendelés módosítás
-- `DELETE /api/orders/{id}` - Rendelés törlés
+**Megjegyzés:** A token JWT formátumú és a bejelentkezés (`/login`) végponton keresztül szerezhető meg.
 
-#### Payments
-- `GET /api/payments` - Összes fizetés
-- `GET /api/payments/{id}` - Egy fizetés
-- `POST /api/payments` - Új fizetés
-- `PUT /api/payments/{id}` - Fizetés módosítás
-- `DELETE /api/payments/{id}` - Fizetés törlés
+### Nyilvános végpontok
 
-#### Test
-- `GET /api/test` - API működés ellenőrzése (nincs auth)
+#### GET /ping
+API teszteléshez
+```bash
+GET /api/ping
+```
 
-## 🔧 Fejlesztői Parancsok
+**Válasz** (200 OK):
+```json
+{
+  "message": "pong"
+}
+```
+
+#### POST /register
+Új felhasználó regisztrációja
+
+**Kérés törzse**:
+```json
+{
+  "name": "Test User",
+  "email": "test@example.com",
+  "password": "password123",
+  "password_confirmation": "password123"
+}
+```
+
+**Válasz** (201 Created):
+```json
+{
+  "message": "Registration successful",
+  "user": {
+    "id": 11,
+    "name": "Test User",
+    "email": "test@example.com",
+    "created_at": "2025-12-04T10:30:00.000000Z",
+    "updated_at": "2025-12-04T10:30:00.000000Z"
+  }
+}
+```
+
+#### POST /login
+Bejelentkezés és token megszerzése
+
+**Kérés törzse**:
+```json
+{
+  "email": "kunta@example.com",
+  "password": "Super_Secret_Pw2025!"
+}
+```
+
+**Válasz** (200 OK):
+```json
+{
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "token_type": "bearer",
+  "expires_in": 3600,
+  "user": {
+    "id": 1,
+    "name": "Kunta",
+    "email": "kunta@example.com",
+    "isAdmin": true
+  }
+}
+```
+
+### Védett végpontok (Bearer Token szükséges)
+
+#### POST /logout
+Kijelentkezés
+
+**Válasz** (200 OK):
+```json
+{
+  "message": "Logout successful"
+}
+```
+
+#### GET /user
+Saját profil lekérése
+
+**Válasz** (200 OK):
+```json
+{
+  "id": 1,
+  "name": "Kunta",
+  "email": "kunta@example.com",
+  "isAdmin": true,
+  "email_verified_at": null,
+  "created_at": "2026-01-04T10:00:00.000000Z",
+  "updated_at": "2026-01-04T10:00:00.000000Z"
+}
+```
+
+#### GET /payments
+Összes payment listázása
+
+**Válasz** (200 OK):
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "order_id": 1,
+      "payment_method": "credit_card",
+      "amount": "150.50",
+      "paid_at": "2025-12-04T10:45:00.000000Z",
+      "created_at": "2025-12-04T11:00:00.000000Z",
+      "order": {
+        "id": 1,
+        "user_id": 1,
+        "total_amount": "150.50",
+        "status": "pending"
+      }
+    }
+  ]
+}
+```
+
+#### POST /payments
+Új payment létrehozása
+
+**Kérés törzse**:
+```json
+{
+  "order_id": 1,
+  "payment_method": "credit_card",
+  "amount": 150.50,
+  "paid_at": "2025-12-04 10:45:00"
+}
+```
+
+**Válasz** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Payment created successfully",
+  "data": {
+    "id": 1,
+    "order_id": 1,
+    "payment_method": "credit_card",
+    "amount": "150.50",
+    "paid_at": "2025-12-04T10:45:00.000000Z"
+  }
+}
+```
+
+#### GET /payments/{id}
+Egy payment megtekintése
+
+**Válasz** (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "order_id": 1,
+    "payment_method": "credit_card",
+    "amount": "150.50"
+  }
+}
+```
+
+#### PUT/PATCH /payments/{id}
+Payment módosítása
+
+**PUT kérés törzse** (minden mező kötelező):
+```json
+{
+  "order_id": 1,
+  "payment_method": "bank_transfer",
+  "amount": 175.00,
+  "paid_at": "2025-12-04 12:00:00"
+}
+```
+
+**PATCH kérés törzse** (csak a módosítandó mezők):
+```json
+{
+  "payment_method": "stripe",
+  "amount": 180.00
+}
+```
+
+**Válasz** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Payment updated successfully",
+  "data": { }
+}
+```
+
+#### DELETE /payments/{id}
+Payment törlése (Soft Delete)
+
+**Válasz** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Payment deleted successfully"
+}
+```
+
+## 🔐 Soft Delete
+
+A rendszer **Soft Delete** megközelítést használ:
+- Törölt rekordok fizikailag **megmaradnak** az adatbázisban
+- A `deleted_at` mező kitöltésre kerül
+- Lekérdezések alapértelmezetten **nem tartalmazzák** a törölt rekordokat
+- Törölt rekordok később **visszaállíthatók**
+
+## 🧪 Tesztelés
+
+### Tesztek futtatása
+```bash
+php artisan test
+```
+
+### Teszt lefedettség
+- **AuthTest**: 9 teszt (regisztráció, bejelentkezés, kijelentkezés)
+- **PaymentTest**: 13 teszt (CRUD műveletek, validációk, authentikáció)
+- **Összesen**: 25+ teszt
+
+### Példa teszt eredmény
+```
+PASS  Tests\Feature\AuthTest
+✓ user can register with valid data
+✓ user can login with valid credentials
+✓ authenticated user can logout
+
+PASS  Tests\Feature\PaymentTest
+✓ can create payment with valid data
+✓ can update payment with put
+✓ can delete payment (Soft Delete)
+
+Tests:  25 passed
+```
+
+## 📝 HTTP Státuszkódok
+
+| Kód | Jelentés | Használat |
+|-----|----------|-----------|
+| 200 | OK | Sikeres GET, PUT, PATCH, DELETE |
+| 201 | Created | Sikeres POST (új erőforrás) |
+| 400 | Bad Request | Hibás formátumú kérés |
+| 401 | Unauthorized | Érvénytelen vagy hiányzó token |
+| 404 | Not Found | Erőforrás nem található |
+| 422 | Unprocessable Entity | Validációs hiba |
+
+## 📁 Projekt struktúra
+
+```
+app/
+├── Http/
+│   └── Controllers/
+│       ├── AuthController.php      # Authentikáció
+│       └── PaymentController.php   # Payment CRUD
+├── Models/
+│   ├── User.php                    # User model
+│   ├── Order.php                   # Order model (Soft Delete)
+│   └── Payment.php                 # Payment model (Soft Delete)
+database/
+├── factories/
+│   ├── OrderFactory.php            # Order factory
+│   └── PaymentFactory.php          # Payment factory
+├── migrations/
+│   ├── *_create_users_table.php
+│   ├── *_create_orders_table.php
+│   ├── *_create_payments_table.php
+│   ├── *_add_soft_deletes_to_orders_table.php
+│   └── *_add_soft_deletes_to_payments_table.php
+└── seeders/
+    └── DatabaseSeeder.php          # Teszt adatok
+routes/
+└── api.php                         # API végpontok
+tests/
+├── Feature/
+│   ├── AuthTest.php                # Auth tesztek
+│   └── PaymentTest.php             # Payment tesztek
+```
+
+## 🛠️ Hasznos parancsok
 
 ```bash
-# Adatbázis újratöltése teszt adatokkal
+# Migrációk visszavonása és újrafuttatása seed-del
 php artisan migrate:fresh --seed
 
-# Cache törlése
+# Cache tisztítása
 php artisan cache:clear
 php artisan config:clear
 php artisan route:clear
 
-# Route lista megtekintése
-php artisan route:list
+# Tesztek futtatása verbose móddal
+php artisan test --verbose
 ```
 
-## 📊 Teszt Adatok
+## 📮 Postman Collection
 
-A seederek automatikusan generálnak:
-- **1 admin felhasználót**
-- **9 normál felhasználót** magyar nevekkel
-- **~30 rendelést** véletlenszerű státuszokkal
-- **~70-90 fizetést** magyar fizetési módokkal
+A projekt tartalmaz egy teljes Postman collection-t a `docs/` mappában:
+- `Payment_Platform_JWT_API.postman_collection.json`
 
-### Magyar Fizetési Módok
-- bankkártya
-- készpénz
-- átutalás
-- PayPal
-- Simplepay
-- Barion
-- utánvét
+Importáld Postman-be az egyszerű teszteléshez.
 
-## 🛡️ Biztonság
+## 📄 Licenc
 
-- JWT token alapú authentikáció
-- Jelszavak hash-elve (bcrypt)
-- CORS konfiguráció
-- Validációs szabályok minden endpointon
-- Jogosultság ellenőrzés minden műveletnél
+Ez a projekt oktatási célokat szolgál.
 
-## 🐛 Gyakori Hibák
+## 👨‍💻 Fejlesztő
 
-### "Token has expired"
-```bash
-# Frissítsd a tokent a /api/refresh endpointon
-# Vagy jelentkezz be újra
-```
-
-### "No permission"
-```bash
-# Ellenőrizd, hogy admin-ként vagy bejelentkezve
-# Vagy próbálj saját rendelést/fizetést elérni
-```
-
-### Adatbázis újratöltése
-```bash
-php artisan migrate:fresh --seed
-```
-
-## 📁 Projekt Struktúra
-
-```
-paymentPlatformJWT/
-├── app/
-│   ├── Http/
-│   │   └── Controllers/
-│   │       ├── AuthController.php
-│   │       ├── OrderController.php
-│   │       └── PaymentController.php
-│   └── Models/
-│       ├── User.php
-│       ├── Order.php
-│       └── Payment.php
-├── database/
-│   ├── migrations/
-│   └── seeders/
-│       ├── UserSeeder.php
-│       ├── OrderSeeder.php
-│       └── PaymentSeeder.php
-├── docs/
-│   ├── README.md (Teljes dokumentáció)
-│   └── Payment_Platform_JWT_API.postman_collection.json
-└── routes/
-    └── api.php
-```
-
-## 📄 Licensz
-
-Ez a projekt oktatási célokra készült.
+Fejlesztve Laravel 11 és PHP 8.2 használatával.
 
 ---
 
-## About Laravel
-
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+**További dokumentáció:** A teljes API dokumentáció és megvalósítási útmutató a `docs/exampleGOOD.md` fájlban található.
