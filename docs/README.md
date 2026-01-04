@@ -2,7 +2,7 @@
 
 Laravel alapú fizetési platform REST API Bearer token authentikációval, amely lehetővé teszi fizetési tranzakciók kezelését, megrendelések nyilvántartását és felhasználói authentikációt.
 
-## 🚀 Főbb funkciók
+##  Főbb funkciók
 
 - **Authentikáció**: Regisztráció, bejelentkezés, token kezelés (Laravel Sanctum)
 - **Payment CRUD műveletek**: Create, Read, Update, Delete
@@ -10,15 +10,7 @@ Laravel alapú fizetési platform REST API Bearer token authentikációval, amel
 - **RESTful API**: Jól strukturált végpontok JSON válaszokkal
 - **Tesztek**: Teljes körű Feature testek PHPUnit-tal
 
-## 📋 Technológiai stack
-
-- **Framework**: Laravel 11.x
-- **Authentikáció**: JWT (tymon/jwt-auth)
-- **Adatbázis**: MySQL
-- **PHP verzió**: 8.2+
-- **Testing**: PHPUnit
-
-## 📊 Adatbázis struktúra
+##  Adatbázis struktúra
 
 Az alkalmazás három fő táblából áll:
 
@@ -61,7 +53,7 @@ Az alkalmazás három fő táblából áll:
 - Egy felhasználóhoz több megrendelés tartozhat (User → Orders: 1:N)
 - Egy megrendeléshez több fizetés tartozhat (Order → Payments: 1:N)
 
-## 🔧 Telepítés
+##  Telepítés
 
 ### 1. Projekt létrehozása
 ```bash
@@ -89,10 +81,10 @@ php artisan make:migration create_orders_table
 php artisan make:migration create_payments_table
 ```
 
-**Megjegyzés:** A migrációs fájlokat a `database/migrations/` mappában kell szerkeszteni a megfelelő sémával (lásd az adatbázis struktúra részt).
+
 
 ### 5. Környezeti változók beállítása
-Másold le a `.env.example` fájlt `.env` néven és állítsd be az adatbázis kapcsolatot:
+
 ```env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
@@ -129,7 +121,7 @@ php artisan make:model Payment -mf
 
 **Megjegyzés:** Szerkeszd a modelleket, factory-kat és seeder-eket a megfelelő kapcsolatokkal és adatokkal.
 
-### 10. Adatbázis feltöltése (Seeding))
+### 10. Adatbázis feltöltése (Seeding)
 ```bash
 php artisan db:seed
 ```
@@ -147,7 +139,7 @@ php artisan serve
 
 Az API elérhető a `http://127.0.0.1:8000/api` címen.
 
-## 👥 Teszt felhasználók
+##  Teszt felhasználók
 
 **Kunta felhasználó (Admin):**
 - Email: `kunta@example.com`
@@ -160,7 +152,7 @@ Az API elérhető a `http://127.0.0.1:8000/api` címen.
 - `isAdmin`: `false`
 
 
-## 📂 Migrációk
+##  Migrációk
 
 ### 1. Add isAdmin to Users Table
 **Fájl:** `database/migrations/2026_01_04_112446_add_is_admin_to_users_table.php`
@@ -253,7 +245,7 @@ return new class extends Migration
 
 ---
 
-## 🎯 Modellek
+##  Modellek
 
 ### User Model
 **Fájl:** `app/Models/User.php`
@@ -392,7 +384,7 @@ class Payment extends Model
 
 ---
 
-## 🌱 Seeders
+##  Seeders
 
 ### DatabaseSeeder
 **Fájl:** `database/seeders/DatabaseSeeder.php`
@@ -583,7 +575,7 @@ class PaymentSeeder extends Seeder
 
 ---
 
-## 📚 API Dokumentáció
+##  API Dokumentáció
 
 ### Base URL
 ```
@@ -811,7 +803,7 @@ Payment törlése (Soft Delete)
 }
 ```
 
-## 🔐 Soft Delete
+##  Soft Delete
 
 A rendszer **Soft Delete** megközelítést használ:
 - Törölt rekordok fizikailag **megmaradnak** az adatbázisban
@@ -819,7 +811,7 @@ A rendszer **Soft Delete** megközelítést használ:
 - Lekérdezések alapértelmezetten **nem tartalmazzák** a törölt rekordokat
 - Törölt rekordok később **visszaállíthatók**
 
-## 🧪 Tesztelés
+##  Tesztelés
 
 ### Tesztek futtatása
 ```bash
@@ -846,7 +838,7 @@ PASS  Tests\Feature\PaymentTest
 Tests:  25 passed
 ```
 
-## 📝 HTTP Státuszkódok
+##  HTTP Státuszkódok
 
 | Kód | Jelentés | Használat |
 |-----|----------|-----------|
@@ -857,7 +849,7 @@ Tests:  25 passed
 | 404 | Not Found | Erőforrás nem található |
 | 422 | Unprocessable Entity | Validációs hiba |
 
-## 📁 Projekt struktúra
+##  Projekt struktúra
 
 ```
 app/
@@ -889,7 +881,7 @@ tests/
 │   └── PaymentTest.php             # Payment tesztek
 ```
 
-## 🛠️ Hasznos parancsok
+##  Hasznos parancsok
 
 ```bash
 # Migrációk visszavonása és újrafuttatása seed-del
@@ -912,22 +904,3 @@ php artisan route:clear
 # Tesztek futtatása verbose móddal
 php artisan test --verbose
 ```
-
-## 📮 Postman Collection
-
-A projekt tartalmaz egy teljes Postman collection-t a `docs/` mappában:
-- `Payment_Platform_JWT_API.postman_collection.json`
-
-Importáld Postman-be az egyszerű teszteléshez.
-
-## 📄 Licenc
-
-Ez a projekt oktatási célokat szolgál.
-
-## 👨‍💻 Fejlesztő
-
-Fejlesztve Laravel 11 és PHP 8.2 használatával.
-
----
-
-**További dokumentáció:** A teljes API dokumentáció és megvalósítási útmutató a `docs/exampleGOOD.md` fájlban található.
