@@ -10,14 +10,6 @@ Laravel alapú fizetési platform REST API Bearer token authentikációval, amel
 - **RESTful API**: Jól strukturált végpontok JSON válaszokkal
 - **Tesztek**: Teljes körű Feature testek PHPUnit-tal
 
-##  Technológiai stack
-
-- **Framework**: Laravel 11.x
-- **Authentikáció**: JWT (tymon/jwt-auth)
-- **Adatbázis**: MySQL
-- **PHP verzió**: 8.2+
-- **Testing**: PHPUnit
-
 ##  Adatbázis struktúra
 
 Az alkalmazás három fő táblából áll:
