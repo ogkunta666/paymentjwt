@@ -63,15 +63,16 @@ Az alkalmazás három fő táblából áll:
 
 ## 🔧 Telepítés
 
-### 1. Projekt klónozása
+### 1. Projekt létrehozása
 ```bash
-git clone <repository-url>
+composer create-project laravel/laravel paymentPlatformJWT
 cd paymentPlatformJWT
 ```
 
-### 2. Függőségek telepítése
+### 2. JWT Auth csomag telepítése
 ```bash
-composer install
+composer require tymon/jwt-auth
+php artisan vendor:publish --provider="Tymon\JWTAuth\Providers\LaravelServiceProvider"
 ```
 
 ### 3. JWT Secret generálása
@@ -81,7 +82,16 @@ php artisan jwt:secret
 
 Ez hozzáadja a `JWT_SECRET` kulcsot a `.env` fájlhoz.
 
-### 4. Környezeti változók beállítása
+### 4. Migrációk létrehozása
+```bash
+php artisan make:migration add_is_admin_to_users_table
+php artisan make:migration create_orders_table
+php artisan make:migration create_payments_table
+```
+
+**Megjegyzés:** A migrációs fájlokat a `database/migrations/` mappában kell szerkeszteni a megfelelő sémával (lásd az adatbázis struktúra részt).
+
+### 5. Környezeti változók beállítása
 Másold le a `.env.example` fájlt `.env` néven és állítsd be az adatbázis kapcsolatot:
 ```env
 DB_CONNECTION=mysql
@@ -98,20 +108,28 @@ JWT_SECRET=your_secret_key_here
 JWT_TTL=60
 ```
 
-### 5. Application key generálása
+### 6. Application key generálása
 ```bash
 php artisan key:generate
 ```
 
-### 6. Adatbázis létrehozása
+### 7. Adatbázis létrehozása
 Hozz létre egy `paymentPlatform` nevű adatbázist MySQL-ben.
 
-### 7. Migrációk futtatása
+### 8. Migrációk futtatása
 ```bash
 php artisan migrate
 ```
 
-### 8. Adatbázis feltöltése (Seeding)
+### 9. Modellek és Factory-k létrehozása
+```bash
+php artisan make:model Order -mf
+php artisan make:model Payment -mf
+```
+
+**Megjegyzés:** Szerkeszd a modelleket, factory-kat és seeder-eket a megfelelő kapcsolatokkal és adatokkal.
+
+### 10. Adatbázis feltöltése (Seeding)
 ```bash
 php artisan db:seed
 ```
@@ -122,14 +140,14 @@ Ez létrehoz:
 - **10-30 megrendelést**: Minden felhasználóhoz 1-3 megrendelés
 - **10-60 fizetést**: Minden megrendeléshez 1-2 fizetés
 
-### 9. Szerver indítása
+### 11. Szerver indítása
 ```bash
 php artisan serve
 ```
 
 Az API elérhető a `http://127.0.0.1:8000/api` címen.
 
-## 👥 Teszt felhasználók
+##  Teszt felhasználók
 
 **Kunta felhasználó (Admin):**
 - Email: `kunta@example.com`
@@ -142,7 +160,7 @@ Az API elérhető a `http://127.0.0.1:8000/api` címen.
 - `isAdmin`: `false`
 
 
-## 📚 API Dokumentáció
+##  API Dokumentáció
 
 ### Base URL
 ```
@@ -405,7 +423,7 @@ PASS  Tests\Feature\PaymentTest
 Tests:  25 passed
 ```
 
-## 📝 HTTP Státuszkódok
+##  HTTP Státuszkódok
 
 | Kód | Jelentés | Használat |
 |-----|----------|-----------|
@@ -416,7 +434,7 @@ Tests:  25 passed
 | 404 | Not Found | Erőforrás nem található |
 | 422 | Unprocessable Entity | Validációs hiba |
 
-## 📁 Projekt struktúra
+##  Projekt struktúra
 
 ```
 app/
@@ -448,11 +466,20 @@ tests/
 │   └── PaymentTest.php             # Payment tesztek
 ```
 
-## 🛠️ Hasznos parancsok
+## Hasznos parancsok
 
 ```bash
 # Migrációk visszavonása és újrafuttatása seed-del
 php artisan migrate:fresh --seed
+
+# Csak migrációk futtatása (adatok törlése nélkül)
+php artisan migrate
+
+# Migrációk visszavonása
+php artisan migrate:rollback
+
+# Migrációk státusza
+php artisan migrate:status
 
 # Cache tisztítása
 php artisan cache:clear
@@ -462,22 +489,3 @@ php artisan route:clear
 # Tesztek futtatása verbose móddal
 php artisan test --verbose
 ```
-
-## 📮 Postman Collection
-
-A projekt tartalmaz egy teljes Postman collection-t a `docs/` mappában:
-- `Payment_Platform_JWT_API.postman_collection.json`
-
-Importáld Postman-be az egyszerű teszteléshez.
-
-## 📄 Licenc
-
-Ez a projekt oktatási célokat szolgál.
-
-## 👨‍💻 Fejlesztő
-
-Fejlesztve Laravel 11 és PHP 8.2 használatával.
-
----
-
-**További dokumentáció:** A teljes API dokumentáció és megvalósítási útmutató a `docs/exampleGOOD.md` fájlban található.
